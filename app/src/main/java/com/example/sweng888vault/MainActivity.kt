@@ -19,6 +19,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.FileProvider
+import com.example.sweng888vault.util.FileOpenerUtil
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.sweng888vault.databinding.ActivityMainBinding
 import com.example.sweng888vault.util.MimeTypeUtil
@@ -131,7 +132,7 @@ class MainActivity : AppCompatActivity() {
                     loadFilesAndFolders()
                     updateActionBar()
                 } else {
-                    openFileWithProvider(file) // Use FileProvider for opening
+                    FileOpenerUtil.openFileWithExternalApp(this@MainActivity, file)
                 }
             },
             onItemDelete = { file ->

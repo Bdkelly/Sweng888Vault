@@ -24,10 +24,6 @@ class TextViewerActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         Log.d("TextViewerActivity", "onCreate: Activity started!")
 
-        // Using ViewBinding (recommended)
-        // binding = ActivityTextViewerBinding.inflate(layoutInflater)
-        // setContentView(binding.root)
-
         // --- OR Using findViewById ---
         setContentView(R.layout.activity_text_viewer) // Make sure this matches your XML file name
         val toolbar: Toolbar = findViewById(R.id.toolbar_text_viewer)
