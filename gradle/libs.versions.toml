@@ -1,5 +1,9 @@
 [versions]
 agp = "8.10.1"
+desugar_jdk_libs = "2.1.5"
+docx4jCoreVersion = "11.4.10"
+epublibCore = "0.5"
+epublibCoreVersion = "1.0.5"
 kotlin = "2.0.21"
 coreKtx = "1.16.0"
 junit = "4.13.2"
@@ -11,8 +15,9 @@ material = "1.12.0"
 activity = "1.10.1"
 constraintlayout = "2.2.1"
 multidex = "2.0.1"
-pdfbox = "2.0.30"
+pdfboxAndroidVersion = "2.0.27.0"
 poi = "5.2.5"
+poiScratchpad = "5.2.3"
 textRecognition = "16.0.1"
 
 [libraries]
@@ -20,6 +25,9 @@ androidx-activity-ktx = { module = "androidx.activity:activity-ktx", version.ref
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-multidex = { group = "androidx.multidex", name = "multidex", version.ref = "multidex" }
 androidx-lifecycle-viewmodel-ktx = { module = "androidx.lifecycle:lifecycle-viewmodel-ktx", version.ref = "lifecycleViewmodelKtx" }
+desugar_jdk_libs = { module = "com.android.tools:desugar_jdk_libs", version.ref = "desugar_jdk_libs" }
+docx4j-docx4j-core = { module = "org.docx4j:docx4j-core", version.ref = "docx4jCoreVersion" }
+epublib-core = { module = "eu.freme-project:epublib-core", version.ref = "epublibCore" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
 androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
@@ -27,10 +35,12 @@ androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version
 material = { group = "com.google.android.material", name = "material", version.ref = "material" }
 androidx-activity = { group = "androidx.activity", name = "activity", version.ref = "activity" }
 androidx-constraintlayout = { group = "androidx.constraintlayout", name = "constraintlayout", version.ref = "constraintlayout" }
-pdfbox = { module = "org.apache.pdfbox:pdfbox", version.ref = "pdfbox" }
+mnashr-epublib-core = { module = "com.github.MnashR:epublib-core", version.ref = "epublibCoreVersion" }
 poi = { module = "org.apache.poi:poi", version.ref = "poi" }
 poi-ooxml = { module = "org.apache.poi:poi-ooxml", version.ref = "poi" }
+poi-scratchpad = { module = "org.apache.poi:poi-scratchpad", version.ref = "poiScratchpad" }
 text-recognition = { module = "com.google.mlkit:text-recognition", version.ref = "textRecognition" }
+tom-roush-pdfbox-android = { module = "com.tom-roush:pdfbox-android", version.ref = "pdfboxAndroidVersion" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

@@ -1,4 +1,12 @@
 # Add project specific ProGuard rules here.
+-keep class com.tom_roush.pdfbox.** { *; }
+-keep class org.apache.fontbox.** { *; }
+-keep class org.apache.pdfbox.** { *; }
+-keep class org.apache.poi.** { *; }
+-dontwarn org.apache.poi.**
+-keep class org.openxmlformats.** { *; }
+-dontwarn org.openxmlformats.**
+
 # You can control the set of applied configuration files using the
 # proguardFiles setting in build.gradle.
 #

@@ -6,6 +6,7 @@ import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
 import android.provider.OpenableColumns
+import android.text.Html
 import android.util.Log
 import android.view.MenuItem
 import android.view.View
@@ -29,7 +30,14 @@ import com.example.sweng888vault.util.TextToSpeechHelper
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions.DEFAULT_OPTIONS
+import com.tom_roush.pdfbox.pdmodel.PDDocument
+import com.tom_roush.pdfbox.text.PDFTextStripper
+import nl.siegmann.epublib.epub.EpubReader
+import org.apache.poi.hwpf.HWPFDocument
+import org.apache.poi.hwpf.extractor.WordExtractor
+import org.apache.poi.xwpf.usermodel.XWPFDocument
 import java.io.File
+import java.io.FileInputStream
 
 class MainActivity : AppCompatActivity() {
 
@@ -94,8 +102,6 @@ class MainActivity : AppCompatActivity() {
             }
         })
         ttsHelper = TextToSpeechHelper(this)
-
-
     }
 
     //Handles the PopupMenu when "Add File" is clicked
@@ -144,14 +150,16 @@ class MainActivity : AppCompatActivity() {
                         recognizeTextFromImage(file)
                     }
                     "pdf" -> {
-                        //TODO: Need to implement this
-                        ttsHelper.speak("PDFs")
+                        readTextFromPdf(file)
                     }
                     "txt" -> {
                         readTextFromFile(file)
                     }
                     "doc", "docx" -> {
-                        //TODO: Need to implement this
+                        readTextFromWord(file)
+                    }
+                    "epub" -> {
+                        readTextFromEpub(file)
                     }
                     else -> {
                         Toast.makeText(this, "Unreadable File", Toast.LENGTH_SHORT).show()
@@ -183,7 +191,7 @@ class MainActivity : AppCompatActivity() {
             .addOnSuccessListener { visionText ->
                 val detectedText = visionText.text
                 if (detectedText.isNotBlank()) {
-                    showTextDialogAndSpeak(detectedText)
+                    showTextDialogAndSpeak(detectedText, file.name)
                 } else {
                     Toast.makeText(this, "No text found in image", Toast.LENGTH_SHORT).show()
                 }
@@ -193,6 +201,34 @@ class MainActivity : AppCompatActivity() {
             }
     }
 
+    private fun readTextFromEpub(file: File) {
+        try {
+            val book = EpubReader().readEpub(FileInputStream(file))
+            val content = StringBuilder()
+
+            for (resource in book.resources.all) {
+                val href = resource.href.lowercase()
+                if (href.endsWith(".html") || href.endsWith(".xhtml") || href.endsWith(".htm")) {
+                    val html = resource.reader.readText()
+                    val plainText = Html.fromHtml(html, Html.FROM_HTML_MODE_LEGACY).toString()
+                    content.append(plainText).append("\n\n")
+                }
+            }
+
+            val finalText = content.toString().trim()
+
+            if (finalText.isNotBlank()) {
+                showTextDialogAndSpeak(finalText, file.name)
+                Toast.makeText(this, "EPUB text extracted successfully", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(this, "No readable text found in EPUB", Toast.LENGTH_LONG).show()
+            }
+
+        } catch (e: Exception) {
+            Toast.makeText(this, "Failed to read EPUB file: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     /**
      * Recognize Text from Text Files
      */
@@ -200,13 +236,69 @@ class MainActivity : AppCompatActivity() {
         try {
             val detectedText = file.readText(Charsets.UTF_8)
             if (detectedText.isNotBlank()) {
-                showTextDialogAndSpeak(detectedText)
+                showTextDialogAndSpeak(detectedText, file.name)
             } else {
                 Toast.makeText(this, "Text file is empty", Toast.LENGTH_SHORT).show()
             }
         } catch (e: Exception) {
             Toast.makeText(this, "Failed to read text file: ${e.message}", Toast.LENGTH_SHORT).show()
             return
+        }
+    }
+    private fun readTextFromWord(file: File) {
+        try {
+            val text = when {
+                file.extension.equals("docx", ignoreCase = true) -> {
+                    FileInputStream(file).use { fis ->
+                        val docx = XWPFDocument(fis)
+                        docx.paragraphs.joinToString("\n") { it.text }
+                    }
+                }
+
+                file.extension.equals("doc", ignoreCase = true) -> {
+                    FileInputStream(file).use { fis ->
+                        val doc = HWPFDocument(fis)
+                        WordExtractor(doc).text
+                    }
+                }
+
+                else -> {
+                    Toast.makeText(this, "Unsupported file format", Toast.LENGTH_SHORT).show()
+                    return
+                }
+            }
+
+            if (text.isNotBlank()) {
+                showTextDialogAndSpeak(text, file.name)
+                Toast.makeText(this, "Word document text extracted successfully", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(this, "No text found in Word document", Toast.LENGTH_LONG).show()
+            }
+
+        } catch (e: Exception) {
+            Toast.makeText(this, "Failed to read Word file: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+
+    /**
+     * Read from PDF
+     */
+    private fun readTextFromPdf(file: File) {
+        try {
+            PDDocument.load(file).use { document ->
+                val pdfStripper = PDFTextStripper()
+                val text = pdfStripper.getText(document).trim()
+
+                if (text.isNotBlank()) {
+                    showTextDialogAndSpeak(text, file.name)
+                    Toast.makeText(this, "PDF text extracted successfully", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(this, "No text found in PDF (may contain only images)", Toast.LENGTH_LONG).show()
+                }
+            }
+        } catch (e: Exception) {
+            Toast.makeText(this, "Failed to read PDF file: ${e.message}", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -238,7 +330,7 @@ class MainActivity : AppCompatActivity() {
         dialog.show()
     }
 
-    private fun showTextDialogAndSpeak(text: String) {
+    private fun showTextDialogAndSpeak(text: String, fileName: String) {
         val dialogView = layoutInflater.inflate(R.layout.dialog_text_display, null)
         val textView = dialogView.findViewById<TextView>(R.id.dialogTextView)
         val readTextButton = dialogView.findViewById<Button>(R.id.buttonReadText)
@@ -275,13 +367,10 @@ class MainActivity : AppCompatActivity() {
                 if (currentRelativePath.isBlank()) folderName else "$currentRelativePath/$folderName"
             )
 
-            //TODO: Change to save the audio as the files name
-            val audioFile = File(savedAudiosDir, "tts_${System.currentTimeMillis()}.wav")
-
-            ttsHelper.synthesizeToFile(text, audioFile) { success ->
+            ttsHelper.synthesizeToFile(text, fileName) { files ->
                 runOnUiThread {
-                    if (success) {
-                        Toast.makeText(this, "Audio saved: ${audioFile.name}", Toast.LENGTH_LONG).show()
+                    if (files != null && files.isNotEmpty()) {
+                        Toast.makeText(this, "Audio saved: ${files.size} files", Toast.LENGTH_LONG).show()
                         loadFilesAndFolders()
                     } else {
                         Toast.makeText(this, "Failed to save audio", Toast.LENGTH_SHORT).show()

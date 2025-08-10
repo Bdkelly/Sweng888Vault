@@ -36,19 +36,28 @@ class TextToSpeechHelper(private val context: Context) : TextToSpeech.OnInitList
         }
     }
 
-    fun speak(text: String, utteranceId: String = UUID.randomUUID().toString()) {
-        if (isReady) {
-            // Check if text exceeds max input length
-            if (text.length >= TextToSpeech.getMaxSpeechInputLength()) {
-                Log.w("TextToSpeechHelper", "Text length exceeds TTS max input length. Consider chunking.")
-                // Optionally, you could truncate or try to split here, but it's better handled by the caller
-                // For now, we'll try to speak it anyway, the engine might truncate or error.
-            }
-            tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, utteranceId)
-        } else {
+    fun speak(text: String, baseUtteranceId: String = UUID.randomUUID().toString()) {
+        if (!isReady) {
             Log.w("TextToSpeechHelper", "TTS not ready. Cannot speak.")
-            // Optionally, re-initialize or queue the request if you build such logic
             Toast.makeText(context, "TTS is not ready. Please try again shortly.", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val maxLength = TextToSpeech.getMaxSpeechInputLength()
+        if (text.length <= maxLength) {
+            // Safe to speak directly
+            tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, baseUtteranceId)
+        } else {
+            Log.w("TextToSpeechHelper", "Text exceeds max length. Splitting into chunks...")
+
+            // Split text into safe chunks
+            val chunks = text.chunked(maxLength - 100) // 100-char buffer to avoid hard limit issues
+
+            for ((index, chunk) in chunks.withIndex()) {
+                val utteranceId = "$baseUtteranceId-$index"
+                val queueMode = if (index == 0) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD
+                tts?.speak(chunk, queueMode, null, utteranceId)
+            }
         }
     }
 
@@ -66,60 +75,75 @@ class TextToSpeechHelper(private val context: Context) : TextToSpeech.OnInitList
         Log.i("TTS", "TTS Engine Shut down.")
     }
 
-    fun synthesizeToFile(text: String, file: File, onComplete: (Boolean) -> Unit) {
+    fun synthesizeToFile(
+        text: String,
+        baseFileName: String,
+        onComplete: (List<File>?) -> Unit
+    ) {
         if (!isReady) {
             Log.e("TTS", "TTS not initialized or not ready for synthesizeToFile")
-            onComplete(false)
+            onComplete(null)
             return
         }
 
-        val utteranceId = "synthesize_${System.currentTimeMillis()}"
-        val params = Bundle()
-        // No specific params needed for default synthesis to file usually,
-        // but you could add things like KEY_PARAM_VOLUME if supported and needed.
+        val maxChunkSize = 3900 // safe chunk size for TTS
+        val chunks = text.chunked(maxChunkSize)
+        val generatedFiles = mutableListOf<File>()
 
-        // It's good practice to set the listener before calling synthesizeToFile
-        tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-            override fun onStart(id: String?) {
-                Log.i("TTS", "Utterance started: $id")
+        fun synthesizeChunk(index: Int) {
+            if (index >= chunks.size) {
+                onComplete(generatedFiles)
+                return
             }
 
-            override fun onDone(id: String?) {
-                if (id == utteranceId) {
-                    Log.i("TTS", "Utterance done (file synthesized): $id")
-                    // Ensure the callback is on the main thread if it updates UI
-                    (context as? android.app.Activity)?.runOnUiThread {
-                        onComplete(true)
-                    } ?: onComplete(true) // If context is not an Activity, call directly
+            val chunk = chunks[index]
+            val file = File(context.cacheDir, "$baseFileName-$index.wav")
+            generatedFiles.add(file)
+
+            val utteranceId = "synthesize_${System.currentTimeMillis()}_$index"
+            val params = Bundle()
+
+            tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                override fun onStart(id: String?) {
+                    Log.i("TTS", "Utterance started: $id")
                 }
+
+                override fun onDone(id: String?) {
+                    if (id == utteranceId) {
+                        Log.i("TTS", "Utterance done (file synthesized): $id")
+                        (context as? android.app.Activity)?.runOnUiThread {
+                            synthesizeChunk(index + 1)
+                        } ?: synthesizeChunk(index + 1)
+                    }
+                }
+
+                override fun onError(id: String?) {
+                    Log.e("TTS", "Utterance error (file synthesis failed): $id")
+                    (context as? android.app.Activity)?.runOnUiThread {
+                        onComplete(null)
+                    } ?: onComplete(null)
+                }
+
+                override fun onError(utteranceId: String?, errorCode: Int) {
+                    super.onError(utteranceId, errorCode)
+                    Log.e("TTS", "Utterance error with code $errorCode (file synthesis failed): $utteranceId")
+                    (context as? android.app.Activity)?.runOnUiThread {
+                        onComplete(null)
+                    } ?: onComplete(null)
+                }
+            })
+
+            val result = tts?.synthesizeToFile(chunk, params, file, utteranceId)
+
+            if (result != TextToSpeech.SUCCESS) {
+                Log.e("TTS", "synthesizeToFile call failed with result: $result")
+                onComplete(null)
             }
-
-            override fun onError(id: String?) {
-                Log.e("TTS", "Utterance error (file synthesis failed): $id")
-                (context as? android.app.Activity)?.runOnUiThread {
-                    onComplete(false)
-                } ?: onComplete(false)
-            }
-
-            override fun onError(utteranceId: String?, errorCode: Int) { // Overload for newer API levels
-                super.onError(utteranceId, errorCode)
-                Log.e("TTS", "Utterance error with code $errorCode (file synthesis failed): $utteranceId")
-                (context as? android.app.Activity)?.runOnUiThread {
-                    onComplete(false)
-                } ?: onComplete(false)
-            }
-        })
-
-        val result = tts?.synthesizeToFile(text, params, file, utteranceId)
-
-        if (result == TextToSpeech.SUCCESS) {
-            Log.i("TTS", "synthesizeToFile call successful for utteranceId: $utteranceId")
-            // onComplete will be called by onDone in UtteranceProgressListener
-        } else {
-            Log.e("TTS", "synthesizeToFile call failed with result: $result")
-            onComplete(false)
         }
+
+        synthesizeChunk(0)
     }
+
 
     fun isSpeaking(): Boolean {
         return if (isReady) {

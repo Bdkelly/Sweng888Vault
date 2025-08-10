@@ -12,7 +12,7 @@ android {
 
     defaultConfig {
         applicationId = "com.example.sweng888vault"
-        minSdk = 24
+        minSdk = 26
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
@@ -20,9 +20,22 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    packaging {
+        resources {
+            pickFirsts += listOf(
+                "META-INF/DEPENDENCIES",
+                "META-INF/NOTICE.md",
+                "META-INF/LICENSE.md",
+                "com/tom_roush/pdfbox/resources/glyphlist/glyphlist.txt",
+                "com/tom_roush/pdfbox/resources/glyphlist/*"
+            )
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
+            isShrinkResources = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -46,7 +59,16 @@ dependencies {
     implementation(libs.androidx.constraintlayout)
     implementation(libs.androidx.multidex) // PDF, Doc, and Docx libraries are large
     implementation(libs.text.recognition) //Text-to-Speech library
+    implementation(libs.tom.roush.pdfbox.android) // PDF Reader
+    implementation(libs.docx4j.docx4j.core)
+    implementation(libs.poi)
+    implementation(libs.poi.ooxml)
+    implementation(libs.poi.scratchpad)
+    implementation(libs.epublib.core) {
+        exclude(group="xmlpull", module = "xmlpull")
+    }
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
+    coreLibraryDesugaring(libs.desugar.jdk.libs)
 }
