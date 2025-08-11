@@ -21,6 +21,10 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.FileProvider
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updatePadding
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.sweng888vault.databinding.ActivityMainBinding
@@ -146,7 +150,6 @@ class MainActivity : AppCompatActivity(), DialogsUtil.DialogListener {
         }
     }
 
-    //Handles the PopupMenu when "Add File" is clicked
     private fun showPopupMenu(view: View) {
         val popupMenu = PopupMenu(this@MainActivity, view)
         popupMenu.menuInflater.inflate(R.menu.popup_menu, popupMenu.menu)
