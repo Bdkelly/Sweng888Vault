@@ -39,6 +39,7 @@ import com.example.sweng888vault.util.ExportUtil
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.IOException
 
 class MainActivity : AppCompatActivity(), DialogsUtil.DialogListener {
 
@@ -125,6 +126,11 @@ class MainActivity : AppCompatActivity(), DialogsUtil.DialogListener {
         binding.buttonExport.setOnClickListener {
             startExportProcess()
         }
+    }
+
+    override fun onDestroy() {
+        ttsHelper.shutdown()
+        super.onDestroy()
     }
 
     override fun onFolderCreate(folderName: String) {
@@ -262,26 +268,78 @@ class MainActivity : AppCompatActivity(), DialogsUtil.DialogListener {
         }
 
         saveAudioButton.setOnClickListener {
-            val folderName = "Saved Audios"
-            val folderExists = FileStorageManager.listItems(this, currentRelativePath)
-                .any { it.isDirectory && it.name.equals(folderName, ignoreCase = true) }
+            val textToSpeak = textView.text.toString()
+            val baseOutputFileName = fileName
 
-            if (!folderExists) {
-                val created = FileStorageManager.createFolder(this, folderName, currentRelativePath)
-                if (!created) {
-                    Log.e("MainActivity", "Could not create Saved Audios Folder")
-                    return@setOnClickListener
-                }
-                loadFilesAndFolders()
+            val targetFolderName = "Saved Audios"
+            val parentOfTargetFolderRelativePath = currentRelativePath
+
+            val folderOperationSuccessful: Boolean = FileStorageManager.createFolder(
+                this,
+                folderName = targetFolderName,
+                parentRelativePath = parentOfTargetFolderRelativePath
+            )
+
+            if (!folderOperationSuccessful) {
+                Log.e("MainActivity", "Failed to create or access '$targetFolderName' folder in '$parentOfTargetFolderRelativePath'")
+                Toast.makeText(this, "Error setting up audio save location.", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
             }
 
-            ttsHelper.synthesizeToFile(text, fileName) { files ->
+            val appRootContentDir: File = FileStorageManager.getRootContentDirectory(this)
+            val actualTargetDirectoryFile: File = if (parentOfTargetFolderRelativePath.isEmpty()) {
+                File(appRootContentDir, targetFolderName)
+            } else {
+                File(File(appRootContentDir, parentOfTargetFolderRelativePath), targetFolderName)
+            }
+
+            if (!actualTargetDirectoryFile.exists() || !actualTargetDirectoryFile.isDirectory) {
+                Log.e("MainActivity", "Post-creation check failed: ${actualTargetDirectoryFile.absolutePath} is not a valid directory.")
+                Toast.makeText(this, "Internal error finding save location.", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            ttsHelper.synthesizeToFile(textToSpeak, baseOutputFileName) { cachedFiles ->
                 runOnUiThread {
-                    if (files != null && files.isNotEmpty()) {
-                        Toast.makeText(this, "Audio saved: ${files.size} files", Toast.LENGTH_LONG).show()
-                        loadFilesAndFolders()
+                    if (cachedFiles != null && cachedFiles.isNotEmpty()) {
+                        lifecycleScope.launch(Dispatchers.IO) {
+                            var allCopiedSuccessfully = true
+                            val copiedFileDisplayNames = mutableListOf<String>()
+
+                            for (cachedFile in cachedFiles) {
+                                if (!cachedFile.exists()) continue
+
+                                val destinationFile = File(actualTargetDirectoryFile, cachedFile.name)
+
+                                try {
+                                    cachedFile.copyTo(destinationFile, overwrite = true)
+                                    Log.i("MainActivity", "Copied ${cachedFile.name} to ${destinationFile.absolutePath}")
+                                    copiedFileDisplayNames.add(cachedFile.name)
+                                } catch (e: IOException) {
+                                    Log.e("MainActivity", "Failed to copy ${cachedFile.name} to ${actualTargetDirectoryFile.absolutePath}", e)
+                                    allCopiedSuccessfully = false
+                                    break
+                                }
+                            }
+
+                            withContext(Dispatchers.Main) {
+                                val message: String
+                                if (allCopiedSuccessfully && copiedFileDisplayNames.isNotEmpty()) {
+                                    message = "Audio saved to '$targetFolderName': ${copiedFileDisplayNames.joinToString()}"
+                                } else if (copiedFileDisplayNames.isNotEmpty()) {
+                                    message = "Some audio files saved to '$targetFolderName': ${copiedFileDisplayNames.joinToString()}"
+                                } else if (!allCopiedSuccessfully) {
+                                    message = "Failed to copy one or more audio files."
+                                }
+                                else {
+                                    message = "No audio files were processed for saving."
+                                }
+                                Toast.makeText(this@MainActivity, message, Toast.LENGTH_LONG).show()
+                                loadFilesAndFolders()
+                            }
+                        }
                     } else {
-                        Toast.makeText(this, "Failed to save audio", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this@MainActivity, "Failed to generate audio (TTS error or no text).", Toast.LENGTH_SHORT).show()
                     }
                 }
             }
@@ -295,8 +353,14 @@ class MainActivity : AppCompatActivity(), DialogsUtil.DialogListener {
     }
 
     private fun loadFilesAndFolders() {
-        val items = FileStorageManager.listItems(this, currentRelativePath)
-        fileAdapter.submitList(items.sortedWith(compareBy({ !it.isDirectory }, { it.name.lowercase() })))
+        lifecycleScope.launch(Dispatchers.IO) {
+            val items = FileStorageManager.listItems(this@MainActivity, currentRelativePath)
+            val sortedItems =
+                items.sortedWith(compareBy({ !it.isDirectory }, { it.name.lowercase() }))
+            withContext(Dispatchers.Main) {
+                fileAdapter.submitList(sortedItems)
+            }
+        }
     }
 
     private fun updateActionBar() {

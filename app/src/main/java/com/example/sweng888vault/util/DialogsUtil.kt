@@ -7,8 +7,6 @@ import com.example.sweng888vault.R
 import java.io.File
 
 object DialogsUtil {
-
-    // Using an interface to pass events back to the activity
     interface DialogListener {
         fun onFolderCreate(folderName: String)
         fun onDeleteConfirmed(file: File)
@@ -46,7 +44,4 @@ object DialogsUtil {
             .setIcon(android.R.drawable.ic_dialog_alert)
             .show()
     }
-
-    // You would also move showTxtOptionsDialog here
-    // And showAudioPlayer, showTextDialogAndSpeak, etc.
 }

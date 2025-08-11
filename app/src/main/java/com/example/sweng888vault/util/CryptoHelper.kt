@@ -51,5 +51,4 @@ object CryptoHelper {
     }
 }
 
-// Extension function to convert byte array to a hex string for logging
 fun ByteArray.toHexString() = joinToString("") { "%02x".format(it) }

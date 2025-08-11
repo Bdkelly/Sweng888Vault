@@ -136,8 +136,14 @@ class TextToSpeechHelper(private val context: Context) : TextToSpeech.OnInitList
             val result = tts?.synthesizeToFile(chunk, params, file, utteranceId)
 
             if (result != TextToSpeech.SUCCESS) {
-                Log.e("TTS", "synthesizeToFile call failed with result: $result")
-                onComplete(null)
+                Log.e("TTS", "synthesizeToFile call failed with result: $result for utterance: $utteranceId, file: ${file.absolutePath}")
+                // Make sure your onComplete(null) is robustly called here on the UI thread
+                (context as? android.app.Activity)?.runOnUiThread {
+                    onComplete(null)
+                } ?: onComplete(null)
+                return // Stop further processing for this chunk
+            } else {
+                Log.i("TTS", "synthesizeToFile call succeeded for utterance: $utteranceId, file: ${file.absolutePath}")
             }
         }
 
