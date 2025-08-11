@@ -1,3 +1,5 @@
+lateinit var freeCompilerArgs: kotlin.Any
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -5,6 +7,7 @@ plugins {
 
 android {
     namespace = "com.example.sweng888vault"
+    freeCompilerArgs = "-Xnested-type-aliases"
     compileSdk = 35
     buildFeatures {
         viewBinding = true
