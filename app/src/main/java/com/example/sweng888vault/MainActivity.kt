@@ -35,11 +35,6 @@ import com.example.sweng888vault.util.ExportUtil
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-/*
-import com.example.sweng888vault.util.CryptoHelper // Added
-import com.example.sweng888vault.util.hexToByteArray // Added
-import com.example.sweng888vault.util.toHexString // Added
-*/
 
 class MainActivity : AppCompatActivity(), DialogsUtil.DialogListener {
 
@@ -52,7 +47,6 @@ class MainActivity : AppCompatActivity(), DialogsUtil.DialogListener {
                     // Retrieve the password from the class property
                     exportPassword?.let { password ->
                         exportFiles(uri, password)
-
                         // Clear the password from memory for security
                         exportPassword = null
                     } ?: run {
@@ -129,7 +123,6 @@ class MainActivity : AppCompatActivity(), DialogsUtil.DialogListener {
         }
     }
 
-    // --- New DialogListener interface methods ---
     override fun onFolderCreate(folderName: String) {
         if (folderName.any { it in ILLEGAL_CHARACTERS_FOR_FILENAME }) {
             Toast.makeText(this, "Folder name contains invalid characters", Toast.LENGTH_SHORT).show()
@@ -436,8 +429,6 @@ class MainActivity : AppCompatActivity(), DialogsUtil.DialogListener {
             val success = withContext(Dispatchers.IO) {
                 ExportUtil.performExport(this@MainActivity, exportUri, filesToExport, password)
             }
-
-            // ... handle the result
         }
     }
 
